@@ -62,6 +62,7 @@ Buka browser, login dengan `vue` / `vue`, lalu coba refresh di `/profile`
 | `npm run test:e2e:headed` | Browser terlihat, **1 worker** (satu jendela) |
 | `npm run test:e2e:slow` | Seperti headed + jeda **1000 ms** tiap aksi |
 | `npm run test:e2e:debug` | Playwright Inspector: pause & tombol *Step over* |
+| `npm run test:e2e:debug:cli` | Debugger berbasis terminal (tanpa jendela Inspector) |
 
 Perintah manual yang sering dipakai:
 
@@ -121,6 +122,84 @@ Tips:
 - Di Windows PowerShell, `SLOW_MO=1000 cmd` tidak berlaku. Set dulu:
   `$env:SLOW_MO=1000` lalu `npm run test:e2e:headed`
   (script `test:e2e:slow` memakai sintaks shell POSIX).
+
+### Debug per langkah: kenapa `--debug` terlihat "berhenti"?
+
+Itu memang perilakunya, bukan hang. `--debug` setara dengan:
+
+```bash
+PWDEBUG=1 playwright test --timeout=0 --max-failures=1 --headed --workers=1
+```
+
+- `--timeout=0` → tidak ada batas waktu, jadi test menunggu Anda tanpa batas.
+- Test **pause sebelum setiap aksi** (klik, isi form, navigasi) dan menunggu perintah.
+
+Cara melanjutkan di **Playwright Inspector** (jendela terpisah dari browser):
+
+| Tombol | Shortcut | Fungsi |
+| --- | --- | --- |
+| Resume | `F8` | Jalankan terus sampai selesai atau pause berikutnya |
+| Pause | `F8` | Hentikan lagi saat test sedang berjalan |
+| Step over | `F10` | Maju satu aksi, lalu pause lagi |
+
+Kalau jendela Inspector tidak terlihat, tekan `Alt+Tab` — di Wayland jendela ini
+kadang terbuka di belakang VS Code atau di workspace lain. Judul jendelanya
+**Playwright Inspector**.
+
+### Kalau Inspector tidak muncul: mode terminal (`--debug=cli`)
+
+```bash
+npm run test:e2e:debug:cli
+```
+
+Output-nya memberi ID sesi:
+
+```
+### The test is currently paused at the start
+### Debugging Instructions
+- Run "playwright-cli attach tw-846bfb" to attach to this test
+```
+
+Buka **terminal kedua** di folder project, lalu:
+
+```bash
+# masuk ke sesi debug (REPL — ketik perintah di bawahnya)
+npm run playwright:cli -- attach tw-846bfb
+
+# atau perintah sekali jalan tanpa REPL
+npm run playwright:cli -- -s=tw-846bfb step-over
+npm run playwright:cli -- -s=tw-846bfb resume
+npm run playwright:cli -- -s=tw-846bfb snapshot
+npm run playwright:cli -- -s=tw-846bfb pause-at e2e/auth.spec.ts:59
+```
+
+Perintah yang tersedia antara lain: `resume`, `step-over`, `pause-at <file>:<line>`,
+`snapshot`, `click`, `fill`, `goto`, `eval`. Ganti `tw-846bfb` dengan ID sesi Anda.
+
+**Sudah diverifikasi di project ini:** `--debug=cli` → `attach tw-846bfb` → `resume`
+menghasilkan `✓ 1 renders the login form (179ms)` dan `1 passed`.
+
+### Mau berhenti hanya di satu titik?
+
+Tambahkan `await page.pause()` di test, lalu jalankan `npm run test:e2e:headed`.
+Test berjalan normal sampai baris itu, lalu pause; tekan `F8`/Resume untuk lanjut.
+
+```ts
+await page.getByTestId('password-input').fill('vue')
+await page.pause() // <- browser berhenti di sini
+await page.getByTestId('login-submit').click()
+```
+
+### Ringkasan pilihan
+
+| Kebutuhan | Perintah |
+| --- | --- |
+| Lihat otomatis, pelan | `npm run test:e2e:slow` (`SLOW_MO=1000`) |
+| Lihat otomatis, lebih pelan | `SLOW_MO=2000 npm run test:e2e:headed` |
+| Pause & maju per aksi (GUI) | `npm run test:e2e:debug` lalu `F10` |
+| Pause & maju per aksi (terminal) | `npm run test:e2e:debug:cli` + `playwright:cli` |
+| Pause di baris tertentu | `await page.pause()` di dalam test |
+| Replay tiap langkah tanpa pause | `npm run test:e2e:ui` |
 
 ## Skenario test (9 kasus)
 

@@ -6,5 +6,6 @@ test-results
 playwright-report
 blob-report
 playwright/.cache
+.playwright-cli
 *.local
 .DS_Store
