@@ -13,6 +13,10 @@ export default defineConfig({
     baseURL: BASE_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    launchOptions: {
+      // Set SLOW_MO=1000 to slow every browser action down by 1 second.
+      slowMo: Number(process.env.SLOW_MO ?? 0) || undefined,
+    },
   },
   projects: [
     {

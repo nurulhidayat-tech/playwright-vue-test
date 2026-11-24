@@ -42,6 +42,40 @@ npx playwright test --debug         # step through with Inspector
 npx playwright show-report          # open the last HTML report
 ```
 
+## Watch the tests in a real browser
+
+Playwright runs headless by default. To actually see the clicks and typing:
+
+```bash
+npm run test:e2e:headed   # opens Chromium, runs one test at a time
+npm run test:e2e:slow     # same + 1s pause before every action (SLOW_MO=1000)
+npm run test:e2e:debug    # Playwright Inspector: step through with "Step over"
+```
+
+Change the speed with any value in milliseconds:
+
+```bash
+SLOW_MO=250  npm run test:e2e:headed   # brisk
+SLOW_MO=2000 npm run test:e2e:headed   # very slow
+SLOW_MO=0    npm run test:e2e:headed   # no artificial delay
+```
+
+Run a single scenario while watching (the `-g` filter matches the test title):
+
+```bash
+SLOW_MO=1000 npx playwright test --headed --workers=1 -g "5. signs in"
+SLOW_MO=1000 npx playwright test --headed --workers=1 -g "7. logs out"
+```
+
+Notes:
+
+- `--workers=1` keeps a single browser window; without it 9 windows open at once.
+- `--headed` needs a desktop session (this machine has Wayland/X11).
+- Interactive pause/timeline without slowing the run: `npm run test:e2e:ui`, then
+  click a test and use the timeline scrubber.
+- Windows PowerShell cannot use `SLOW_MO=1000 cmd`; set it first with
+  `$env:SLOW_MO=1000` (the `npm run test:e2e:slow` script is POSIX-shell only).
+
 ## Other scripts
 
 ```bash
