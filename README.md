@@ -1,113 +1,232 @@
 # Vue Auth · Playwright UI Test
 
-Vue 3 + TypeScript demo app (login / profile / logout) with an end-to-end UI
-test suite written in Playwright.
+Aplikasi demo **Vue 3 + TypeScript** dengan alur login → profile → logout, lengkap
+dengan **9 test UI end-to-end** memakai **Playwright** (Chromium).
 
-- Default credential: **`vue` / `vue`**
-- Session is kept in `localStorage` under the key `vue-auth`
-- `/profile` is protected by a Vue Router navigation guard
-- `e2e/auth.spec.ts` covers 9 UI scenarios (chromium)
+Project ini dibuat sebagai bahan latihan UI testing: aplikasinya sengaja kecil,
+tetapi seluruh alur autentikasi diuji dari sisi browser — klik tombol, isi form,
+baca pesan error, cek URL, dan cek `localStorage`.
 
-## Requirements
+## Fitur
 
-- Node.js 20+ (tested with Node 26)
+- Halaman **Login** dengan validasi native (`required`) + pesan error inline.
+- Halaman **Profile** yang dilindungi route guard (`/profile`).
+- **Logout** yang menghapus sesi.
+- Sesi bertahan setelah refresh (`localStorage`, key `vue-auth`).
+- Redirect otomatis: tamu yang membuka `/profile` dikirim ke
+  `/login?redirect=/profile`, lalu kembali ke `/profile` setelah login.
+- Halaman 404 untuk URL yang tidak dikenal.
+- Styling CSS murni (tanpa framework) + TypeScript strict mode.
+
+## Kredensial demo
+
+| Field | Nilai |
+| --- | --- |
+| Username | `vue` |
+| Password | `vue` |
+
+Username/password bersifat **case-sensitive** dan dicek di sisi client (tanpa backend).
+
+## Kebutuhan
+
+- **Node.js 20.19+** atau **22.12+** (Vite 7). Sudah diuji di Node 26 / npm 11.
 - npm 10+
+- Desktop session (Wayland/X11) hanya jika ingin memakai mode `--headed`.
+  Test headless tetap bisa jalan tanpa display.
 
-## Install
+## Instalasi
 
 ```bash
 npm install
 npx playwright install chromium
 ```
 
-## Run the app
+`install chromium` mengunduh browser Chromium + headless shell ke
+`~/.cache/ms-playwright`.
+
+## Menjalankan aplikasi
 
 ```bash
 npm run dev        # http://localhost:5173
 ```
 
-## Run the UI tests
+Buka browser, login dengan `vue` / `vue`, lalu coba refresh di `/profile`
+(sesi tetap) dan klik **Log out** (kembali ke `/login`).
+
+## Menjalankan test
+
+| Perintah | Fungsi |
+| --- | --- |
+| `npm run test:e2e` | Jalankan 9 test headless (dev server otomatis dinyalakan) |
+| `npm run test:e2e:ui` | Mode UI Playwright: pilih test, lihat timeline, time-travel |
+| `npm run test:e2e:headed` | Browser terlihat, **1 worker** (satu jendela) |
+| `npm run test:e2e:slow` | Seperti headed + jeda **1000 ms** tiap aksi |
+| `npm run test:e2e:debug` | Playwright Inspector: pause & tombol *Step over* |
+
+Perintah manual yang sering dipakai:
 
 ```bash
-npx playwright test        # headless, starts the dev server automatically
-npm run test:e2e           # same as above
-npm run test:e2e:ui        # Playwright UI mode (watch / debug)
+npx playwright test                    # semua test headless
+npx playwright test --list             # daftar test tanpa menjalankannya
+npx playwright test e2e/auth.spec.ts   # satu file
+npx playwright test -g "logs out"      # filter berdasarkan judul test
+npx playwright test --repeat-each=3    # ulangi tiap test 3x (deteksi flaky)
+npx playwright show-report             # buka laporan HTML terakhir
 ```
 
-Useful variants:
+Catatan teknis dari `playwright.config.ts`:
+
+- Dev server dijalankan otomatis (`webServer`) di `http://localhost:5173`,
+  dan dipakai ulang jika sudah menyala (`reuseExistingServer` di luar CI).
+- `fullyParallel: true` → tiap file/test boleh berjalan paralel; jumlah worker
+  default 50% core CPU (di CI dipaksa 1).
+- Di CI: `retries: 2`, `workers: 1`, `forbidOnly: true`.
+- Artefak: `screenshot` hanya saat gagal, `trace` disimpan saat retry pertama.
+- Laporan HTML ditulis ke `playwright-report/` (diabaikan git).
+
+## Melihat test berjalan langsung di browser
+
+Playwright berjalan headless secara default. Supaya bisa melihat klik dan
+pengetikan secara langsung:
 
 ```bash
-npx playwright test --headed        # see the browser
-npx playwright test --debug         # step through with Inspector
-npx playwright show-report          # open the last HTML report
+npm run test:e2e:headed   # Chromium terbuka, satu test pada satu waktu
+npm run test:e2e:slow     # sama + jeda 1 detik sebelum setiap aksi
+npm run test:e2e:debug    # Inspector: jalankan per langkah
 ```
 
-## Watch the tests in a real browser
-
-Playwright runs headless by default. To actually see the clicks and typing:
+Atur kecepatan sendiri (milidetik) lewat environment variable `SLOW_MO`, yang
+dibaca config sebagai `launchOptions.slowMo`:
 
 ```bash
-npm run test:e2e:headed   # opens Chromium, runs one test at a time
-npm run test:e2e:slow     # same + 1s pause before every action (SLOW_MO=1000)
-npm run test:e2e:debug    # Playwright Inspector: step through with "Step over"
+SLOW_MO=250  npm run test:e2e:headed   # agak cepat
+SLOW_MO=2000 npm run test:e2e:headed   # sangat lambat
+SLOW_MO=0    npm run test:e2e:headed   # tanpa jeda buatan
 ```
 
-Change the speed with any value in milliseconds:
+Jalankan satu skenario saja sambil menonton:
 
 ```bash
-SLOW_MO=250  npm run test:e2e:headed   # brisk
-SLOW_MO=2000 npm run test:e2e:headed   # very slow
-SLOW_MO=0    npm run test:e2e:headed   # no artificial delay
+SLOW_MO=1500 npx playwright test --headed --workers=1 -g "5. signs in"
+SLOW_MO=1500 npx playwright test --headed --workers=1 -g "7. logs out"
+SLOW_MO=1500 npx playwright test --headed --workers=1 -g "2. blocks"
 ```
 
-Run a single scenario while watching (the `-g` filter matches the test title):
+Tips:
+
+- `--workers=1` penting saat menonton; tanpa itu 9 jendela browser terbuka sekaligus.
+- Ingin bisa pause dan mundur? Pakai `npm run test:e2e:ui`, klik satu test, lalu
+  gunakan timeline di bawah.
+- `--headed` butuh display. Di server/SSH tanpa GUI, gunakan `xvfb-run npx playwright test --headed`.
+- Di Windows PowerShell, `SLOW_MO=1000 cmd` tidak berlaku. Set dulu:
+  `$env:SLOW_MO=1000` lalu `npm run test:e2e:headed`
+  (script `test:e2e:slow` memakai sintaks shell POSIX).
+
+## Skenario test (9 kasus)
+
+Semua test ada di `e2e/auth.spec.ts`, dijalankan dari browser sungguhan
+(Chromium), dan setiap test mendapat konteks browser baru (storage bersih).
+
+| # | Judul test | Yang diverifikasi |
+| --- | --- | --- |
+| 1 | renders the login form | Heading, form, input username/password, tombol submit, URL `/login` |
+| 2 | blocks submit while fields are empty | Validasi native menolak submit; tetap di `/login`, tidak ada error custom |
+| 3 | shows an error for a wrong password | Alert `Invalid username or password.` tampil; `localStorage` tetap kosong |
+| 4 | shows an error for an unknown username | Username selain `vue` ditolak |
+| 5 | signs in with vue/vue | Redirect ke `/profile`, username tampil, tombol logout ada |
+| 6 | redirects guests away from the protected profile | Guest ke `/profile` → `/login` dengan `?redirect=/profile`, lalu login mengembalikan ke `/profile` |
+| 7 | logs out and clears the stored session | Kembali ke `/login` dan key `vue-auth` terhapus |
+| 8 | keeps the session after a page reload | Refresh di `/profile` tidak melempar ke login |
+| 9 | sends an authenticated user from /login to /profile | User yang sudah login tidak bisa membuka halaman login |
+
+Menambah test baru: buat file `e2e/*.spec.ts`, pakai `test` dan `expect` dari
+`@playwright/test`, dan pilih elemen lewat `page.getByTestId(...)`.
+
+## Struktur project
+
+```
+.
+├── index.html                  entry HTML (mount #app)
+├── vite.config.ts              plugin Vue, port 5173 strictPort
+├── playwright.config.ts        project chromium, baseURL, webServer, slowMo
+├── tsconfig*.json              TS strict untuk app dan config/test
+├── e2e/
+│   └── auth.spec.ts            9 test UI autentikasi
+├── src/
+│   ├── main.ts                 bootstrap: Pinia → Router → mount
+│   ├── App.vue                 shell layout + <RouterView>
+│   ├── assets/main.css         styling CSS murni
+│   ├── stores/auth.ts          kredensial, sesi localStorage, login/logout
+│   ├── router/index.ts         route + navigation guard
+│   └── views/
+│       ├── LoginView.vue       form login + error inline
+│       ├── ProfileView.vue     data user + tombol logout
+│       └── NotFoundView.vue    halaman 404
+├── docs/superpowers/
+│   ├── specs/                  design doc (disetujui)
+│   └── plans/                  implementation plan
+└── README.md
+```
+
+## Cara kerja autentikasi
+
+1. `LoginView` mengirim `username`/`password` ke `authStore.login()`.
+2. Store membandingkan dengan konstanta `DEFAULT_USERNAME`/`DEFAULT_PASSWORD`
+   (`vue`/`vue`). Gagal → return `false` dan form menampilkan alert.
+3. Berhasil → store menyimpan `username` di state dan menulis
+   `localStorage["vue-auth"] = {"username":"vue"}`.
+4. `router.beforeEach` mengecek `meta.requiresAuth`: jika belum login, arahkan
+   ke `/login?redirect=<path asal>`; jika sudah login dan membuka `/login`,
+   arahkan ke `/profile`.
+5. Saat aplikasi dimuat ulang, store melakukan hidrasi dari `localStorage`
+   (dibungkus `try/catch`, jadi data rusak tidak membuat app crash).
+6. `logout()` mengosongkan state dan menghapus key `vue-auth`.
+
+## Selector `data-testid`
+
+Test tidak bergantung pada teks atau class CSS. Kontrak yang dipakai:
+
+| `data-testid` | Elemen |
+| --- | --- |
+| `login-page` / `profile-page` / `not-found-page` | Root section tiap halaman |
+| `login-form` | `<form>` login |
+| `username-input` / `password-input` | Input form |
+| `login-submit` | Tombol submit |
+| `login-error` | Paragraf error (`role="alert"`) |
+| `profile-username` | Span berisi username |
+| `logout-button` | Tombol logout |
+
+Jika Anda mengubah nama `data-testid`, ubah juga test yang memakainya.
+
+## Script lain
 
 ```bash
-SLOW_MO=1000 npx playwright test --headed --workers=1 -g "5. signs in"
-SLOW_MO=1000 npx playwright test --headed --workers=1 -g "7. logs out"
+npm run typecheck   # vue-tsc -b (cek tipe app + config/test)
+npm run build       # typecheck + build produksi ke dist/
+npm run preview     # serve hasil build
 ```
 
-Notes:
+## Troubleshooting
 
-- `--workers=1` keeps a single browser window; without it 9 windows open at once.
-- `--headed` needs a desktop session (this machine has Wayland/X11).
-- Interactive pause/timeline without slowing the run: `npm run test:e2e:ui`, then
-  click a test and use the timeline scrubber.
-- Windows PowerShell cannot use `SLOW_MO=1000 cmd`; set it first with
-  `$env:SLOW_MO=1000` (the `npm run test:e2e:slow` script is POSIX-shell only).
+| Masalah | Solusi |
+| --- | --- |
+| `Error: Port 5173 is already in use` | Port dipaksa `strictPort`. Hentikan proses lama: `pkill -f 'vite --port 5173'`, lalu jalankan lagi |
+| `Executable doesn't exist at .../chrome-linux64/chrome` | `npx playwright install chromium` |
+| Browser gagal start karena library sistem kurang (Linux/CI) | `npx playwright install --with-deps chromium` (butuh sudo) |
+| `--headed` tidak membuka jendela | Butuh sesi desktop. Di SSH/headless: `xvfb-run npx playwright test --headed` |
+| Test jalan terlalu cepat untuk diamati | `SLOW_MO=2000 npm run test:e2e:headed` |
+| Ingin melihat langkah per langkah | `npm run test:e2e:debug`, lalu tekan *Step over* |
+| Test gagal dan ingin bukti | `npx playwright show-report` (screenshot + trace) |
+| `vite` error setelah `npm install` di npm baru | `npm rebuild esbuild`, lalu ulangi |
 
-## Other scripts
+## Catatan keamanan
 
-```bash
-npm run typecheck   # vue-tsc project build check
-npm run build       # typecheck + production build into dist/
-npm run preview     # serve the production build
-```
+Ini **aplikasi demo untuk latihan testing**, bukan contoh autentikasi produksi:
 
-## Project layout
+- Kredensial `vue`/`vue` di-hardcode di bundle client dan bisa dibaca siapa pun.
+- Sesi hanya berupa entri `localStorage` yang bisa diedit manual dari DevTools.
+- Tidak ada backend, hash password, token, refresh, atau expiry.
 
-```
-src/
-  main.ts               app bootstrap (pinia + router)
-  App.vue               layout shell with <RouterView>
-  stores/auth.ts        credential check, session persistence, logout
-  router/index.ts       routes + auth guard
-  views/LoginView.vue   login form + inline error
-  views/ProfileView.vue profile data + logout button
-  views/NotFoundView.vue
-e2e/auth.spec.ts        Playwright UI tests
-playwright.config.ts    chromium project + webServer config
-docs/superpowers/...    design doc and implementation plan
-```
+Untuk aplikasi nyata, validasi harus dilakukan di server, gunakan cookie
+`HttpOnly`/token dengan expiry, dan jangan pernah menyimpan password di client.
 
-## Test scenarios
-
-1. Login page renders the form.
-2. Empty submit is blocked by native validation.
-3. Wrong password shows an error and stores no session.
-4. Unknown username shows an error.
-5. `vue` / `vue` signs in and shows the profile.
-6. Guests are redirected from `/profile` to `/login?redirect=/profile`.
-7. Logout returns to `/login` and clears `localStorage`.
-8. Session survives a page reload.
-9. Authenticated users visiting `/login` are sent to `/profile`.
