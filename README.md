@@ -59,6 +59,7 @@ Buka browser, login dengan `vue` / `vue`, lalu coba refresh di `/profile`
 | --- | --- |
 | `npm run test:e2e` | Jalankan 9 test headless (dev server otomatis dinyalakan) |
 | `npm run test:e2e:ui` | Mode UI Playwright: pilih test, lihat timeline, time-travel |
+| `npm run test:e2e:ui:web` | Mode UI di `http://127.0.0.1:9412`, buka manual di browser |
 | `npm run test:e2e:headed` | Browser terlihat, **1 worker** (satu jendela) |
 | `npm run test:e2e:slow` | Seperti headed + jeda **1000 ms** tiap aksi |
 | `npm run test:e2e:debug` | Playwright Inspector: pause & tombol *Step over* |
@@ -145,6 +146,41 @@ Cara melanjutkan di **Playwright Inspector** (jendela terpisah dari browser):
 Kalau jendela Inspector tidak terlihat, tekan `Alt+Tab` — di Wayland jendela ini
 kadang terbuka di belakang VS Code atau di workspace lain. Judul jendelanya
 **Playwright Inspector**.
+
+### Kalau Inspector tidak muncul (hanya halaman blank)
+
+Kasus ini sudah direproduksi di mesin ini (Playwright 1.65 + Chromium 159 di
+Ubuntu Wayland):
+
+- Browser terbuka menampilkan `about:blank`. Itu **normal**: test di-pause
+  sebelum aksi pertama, jadi `page.goto('/login')` belum dijalankan.
+- Tetapi window **Playwright Inspector tidak pernah muncul**. Sudah diuji dengan
+  Chromium bawaan Playwright, Chrome sistem (`channel: chrome`), dan XWayland
+  (`--ozone-platform=x11`) — hasilnya sama: hanya window `about:blank`.
+
+Penyebabnya: Playwright membuka Inspector sebagai window "app" terpisah
+(`--app=data:text/html,`). Pada kombinasi desktop/Chromium ini window tersebut
+tidak ter-render, sehingga test menunggu tanpa batas.
+
+Gunakan salah satu jalur berikut (keduanya sudah diverifikasi):
+
+**A. UI Mode lewat browser biasa — paling nyaman**
+
+```bash
+npm run test:e2e:ui:web
+# → Listening on http://127.0.0.1:9412
+```
+
+Buka `http://127.0.0.1:9412` di Chrome/Firefox Anda: ada daftar test, tombol
+play per test, timeline time-travel, trace, dan source code.
+
+**B. Debugger terminal `--debug=cli`** — lihat bagian di bawah.
+
+**C. VS Code Playwright extension** — sidebar **Testing** → klik kanan test →
+*Debug Test*. Breakpoint langsung di editor, tanpa window Inspector.
+
+Catatan: `F8`/`F10` **tidak berpengaruh** kalau window Inspector tidak ada,
+karena shortcut itu ditangkap oleh window Inspector, bukan oleh browser.
 
 ### Kalau Inspector tidak muncul: mode terminal (`--debug=cli`)
 
